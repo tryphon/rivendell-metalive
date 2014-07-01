@@ -129,8 +129,3 @@ void rlm_metalive_RLMPadDataSent(void *ptr,const struct rlm_svc *svc,
     RLMLog(ptr,LOG_WARNING,"rlm_metalive: no key defined");
   }
 }
-
-int main(int argc,char *argv[])
-{
-  // printf("Test\n");
-}
