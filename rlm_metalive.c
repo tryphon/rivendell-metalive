@@ -91,7 +91,7 @@ void rlm_metalive_RLMPadDataSent(void *ptr,const struct rlm_svc *svc,
 
   if (rlm_metalive_key != NULL) {
     char url[1024];
-    snprintf(url,512,"http://metalive.tryphon.dev/api/streams/%s/events.json", rlm_metalive_key);
+    snprintf(url,512,"http://metalive.tryphon.eu/api/streams/%s/events.json", rlm_metalive_key);
 
     char now_json[2048];
 
