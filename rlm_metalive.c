@@ -14,6 +14,10 @@
 
 #include "rlm.h"
 
+typedef int bool;
+#define true 1
+#define false 0
+
 char *rlm_metalive_key;
 
 void rlm_metalive_RLMStart(void *ptr,const char *arg)
@@ -46,6 +50,32 @@ void rlm_metalive_Replace(char *str, char replace, char *with) {
   }
 }
 
+char* rlm_metalive_LogName(uint32_t log_mach) {
+  switch (log_mach) {
+  case 0:
+    return "Main";
+  case 1:
+    return "Aux 1";
+  case 2:
+    return "Aux 2";
+  }
+
+  return "";
+}
+
+char* rlm_metalive_LogMode(uint32_t log_mode) {
+  switch (log_mode) {
+  case 1:
+    return "LiveAssist";
+  case 2:
+    return "Automatic";
+  case 3:
+    return "Manual";
+  }
+
+  return "";
+}
+
 void rlm_metalive_JsonStringAttribute(char *json, char *name, const char *value) {
   if (strlen(value) == 0) {
     return;
@@ -56,7 +86,7 @@ void rlm_metalive_JsonStringAttribute(char *json, char *name, const char *value)
   rlm_metalive_Replace(escaped_value, '"', "\\\"");
 
   char json_attribute[512];
-  snprintf(json_attribute,512,"\"%s\": \"%s\"", name, escaped_value);
+  snprintf(json_attribute,512,"\"%s\":\"%s\"", name, escaped_value);
 
   if (strlen(json) > 0) {
     strcat(json, ",");
@@ -64,7 +94,34 @@ void rlm_metalive_JsonStringAttribute(char *json, char *name, const char *value)
   strcat(json, json_attribute);
 }
 
-void rlm_metalive_JsonAttributes(char *json, const struct rlm_pad *pad) {
+void rlm_metalive_JsonIntAttribute(char *json, char *name, const int32_t value) {
+  char json_attribute[512];
+  snprintf(json_attribute,512,"\"%s\":%d", name, value);
+
+  if (strlen(json) > 0) {
+    strcat(json, ",");
+  }
+  strcat(json, json_attribute);
+}
+
+void rlm_metalive_JsonBooleanAttribute(char *json, char *name, const bool value) {
+  char json_attribute[512];
+  snprintf(json_attribute,512,"\"%s\":%s", name, value ? "true" : "false");
+
+  if (strlen(json) > 0) {
+    strcat(json, ",");
+  }
+  strcat(json, json_attribute);
+}
+
+void rlm_metalive_JsonAttributes(char *json, const struct rlm_log *log, const struct rlm_pad *pad) {
+  if (pad->rlm_cartnum == 0) {
+    return;
+  }
+
+  rlm_metalive_JsonIntAttribute(json, "number", pad->rlm_cartnum);
+  rlm_metalive_JsonIntAttribute(json, "length", pad->rlm_len);
+
   rlm_metalive_JsonStringAttribute(json, "album", pad->rlm_album);
   rlm_metalive_JsonStringAttribute(json, "artist", pad->rlm_artist);
   rlm_metalive_JsonStringAttribute(json, "composer", pad->rlm_comp);
@@ -80,6 +137,16 @@ void rlm_metalive_JsonAttributes(char *json, const struct rlm_pad *pad) {
 
   rlm_metalive_JsonStringAttribute(json, "isci", pad->rlm_isci);
   rlm_metalive_JsonStringAttribute(json, "isrc", pad->rlm_isrc);
+
+  rlm_metalive_JsonStringAttribute(json, "conductor", pad->rlm_conductor);
+  rlm_metalive_JsonStringAttribute(json, "song_id", pad->rlm_song_id);
+  rlm_metalive_JsonStringAttribute(json, "outcue", pad->rlm_outcue);
+  rlm_metalive_JsonStringAttribute(json, "description", pad->rlm_description);
+
+  rlm_metalive_JsonBooleanAttribute(json, "onair", log->log_onair == 1);
+  rlm_metalive_JsonStringAttribute(json, "log_machine", rlm_metalive_LogName(log->log_mach));
+  rlm_metalive_JsonStringAttribute(json, "log_name", log->log_name);
+  rlm_metalive_JsonStringAttribute(json, "log_mode", rlm_metalive_LogMode(log->log_mode));
 }
 
 void rlm_metalive_RLMPadDataSent(void *ptr,const struct rlm_svc *svc,
@@ -93,13 +160,26 @@ void rlm_metalive_RLMPadDataSent(void *ptr,const struct rlm_svc *svc,
     char url[1024];
     snprintf(url,512,"http://metalive.tryphon.eu/api/streams/%s/events.json", rlm_metalive_key);
 
+    /* char debug[1024]; */
+    /* snprintf(debug, 512, "onair: %c",log->log_onair); */
+    /* RLMLog(ptr,LOG_DEBUG,debug); */
+
     char now_json[2048];
 
     strcpy(now_json, "");
-    rlm_metalive_JsonAttributes(now_json, now);
+    rlm_metalive_JsonAttributes(now_json, log, now);
+
+    char next_json[2048];
+
+    strcpy(next_json, "");
+    rlm_metalive_JsonAttributes(next_json, log, next);
+
+    if (strlen(now_json) > 0) {
+      strcat(now_json, ",");
+    }
 
     char json[4096];
-    snprintf(json,4096, "{\"description\": {%s}}", now_json);
+    snprintf(json,4096, "{\"description\": {%s\"next\": {%s}}}", now_json, next_json);
 
     RLMLog(ptr,LOG_DEBUG,json);
 
